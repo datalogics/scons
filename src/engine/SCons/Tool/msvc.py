@@ -128,10 +128,18 @@ def _parse_msvc7_overrides(version,platform):
             raise SCons.Errors.InternalError, "Unable to find MSVC paths in the registry."
     return dirs
 
+# DLADD kam 01Jun07 Cache the results of parsing the XML file for VS8
+_msvc8_override_cache = {}
+
 def _parse_msvc8_overrides(version,platform,suite):
     """ Parse any overridden defaults for MSVC directory locations
     in MSVC 2005. """
 
+    # DLADD kam 01Jun07 Cache the results of parsing the XML file for VS8
+    dirs = _msvc8_override_cache.get((version, platform, suite), None)
+    if dirs is not None:
+        return dirs
+        
     # In VS8 the user can change the location of the settings file that
     # contains the include, lib and binary paths. Try to get the location
     # from registry
@@ -233,6 +241,10 @@ def _parse_msvc8_overrides(version,platform,suite):
     else:
         # There are no default directories in the registry for VS8 Express :(
         raise SCons.Errors.InternalError, "Unable to find MSVC paths in the registry."
+
+    # DLADD kam 01Jun07 Cache the results of parsing the XML file for VS8
+    _msvc8_override_cache[(version, platform, suite)] = dirs
+
     return dirs
 
 def _get_msvc7_path(path, version, platform):
