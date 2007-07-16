@@ -287,7 +287,14 @@ class _ActionAction(ActionBase):
             target = [target]
         if not SCons.Util.is_List(source):
             source = [source]
-        if exitstatfunc is _null: exitstatfunc = self.exitstatfunc
+        if exitstatfunc is _null: 
+            exitstatfunc = self.exitstatfunc
+        else:
+            # Let the Action object's exitstatfunc have first crack at the status,
+            # then hand off to the one passed in
+            def _exitstatfunc(stat, wrap=exitstatfunc, wrapped=self.exitstatfunc):
+                return wrap(wrapped(stat))
+            exitstatfunc = _exitstatfunc
         if presub is _null:
             presub = self.presub
         if presub is _null:
