@@ -36,6 +36,8 @@ import string
 
 java_parsing = 1
 
+default_java_version = '1.5'
+
 if java_parsing:
     # Parse Java files for class names.
     #
@@ -59,12 +61,15 @@ if java_parsing:
     class OuterState:
         """The initial state for parsing a Java file for classes,
         interfaces, and anonymous inner classes."""
-        def __init__(self):
+        def __init__(self, version=default_java_version):
+            self.version = version
             self.listClasses = []
             self.listOutputs = []
             self.stackBrackets = []
             self.brackets = 0
             self.nextAnon = 1
+            self.stackAnonClassBrackets = []
+            self.anonStacksStack = [[0]]
             self.package = None
 
         def trace(self):
@@ -103,6 +108,9 @@ if java_parsing:
                 self.skipState = ret
                 return ret
 
+        def __getAnonStack(self):
+            return self.anonStacksStack[-1]
+
         def openBracket(self):
             self.brackets = self.brackets + 1
 
@@ -112,7 +120,12 @@ if java_parsing:
                self.brackets == self.stackBrackets[-1]:
                 self.listOutputs.append(string.join(self.listClasses, '$'))
                 self.listClasses.pop()
+                self.anonStacksStack.pop()
                 self.stackBrackets.pop()
+            if len(self.stackAnonClassBrackets) and \
+               self.brackets == self.stackAnonClassBrackets[-1]:
+                self.__getAnonStack().pop()
+                self.stackAnonClassBrackets.pop()
 
         def parseToken(self, token):
             if token[:2] == '//':
@@ -146,9 +159,21 @@ if java_parsing:
 
         def addAnonClass(self):
             """Add an anonymous inner class"""
-            clazz = self.listClasses[0]
-            self.listOutputs.append('%s$%d' % (clazz, self.nextAnon))
+            if self.version in ('1.1', '1.2', '1.3', '1.4'):
+                clazz = self.listClasses[0]
+                self.listOutputs.append('%s$%d' % (clazz, self.nextAnon))
+                self.nextAnon = self.nextAnon + 1
+            elif self.version in ('1.5', '1.6'):
+                self.stackAnonClassBrackets.append(self.brackets)
+                className = []
+                className.extend(self.listClasses)
+                self.__getAnonStack()[-1] = self.__getAnonStack()[-1] + 1
+                for anon in self.__getAnonStack():
+                    className.append(str(anon))
+                self.listOutputs.append(string.join(className, '$'))
+
             self.nextAnon = self.nextAnon + 1
+            self.__getAnonStack().append(0)
 
         def setPackage(self, package):
             self.package = package
@@ -169,6 +194,8 @@ if java_parsing:
             elif token == '/*':
                 return IgnoreState('*/', self)
             elif token == '\n':
+                return self
+            elif token == '<' and token[-1] == '>':
                 return self
             elif token == '(':
                 self.brace_level = self.brace_level + 1
@@ -208,6 +235,7 @@ if java_parsing:
             if token == '\n':
                 return self
             self.outer_state.listClasses.append(token)
+            self.outer_state.anonStacksStack.append([0])
             return self.outer_state
 
     class IgnoreState:
