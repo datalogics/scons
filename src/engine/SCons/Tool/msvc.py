@@ -139,7 +139,76 @@ def _parse_msvc8_overrides(version,platform,suite):
     dirs = _msvc8_override_cache.get((version, platform, suite), None)
     if dirs is not None:
         return dirs
+
+    # DLADD kam 29Oct2008 Just run vsvarsall.bat in a subprocess and get the environment from that
+    import tempfile
+    import subprocess
+    import sys
+    tmpbat = tempfile.mktemp('.bat')
+    batf = open(tmpbat, 'w')
+    paths = SCons.Tool.msvs.get_msvs_install_dirs(version, suite)
+
+    if paths.has_key('VCINSTALLDIR') and paths.has_key('VSINSTALLDIR'):
+        tmpout = tempfile.mktemp('.pickle')
+        batf.write('@echo off\n')
+        # run vcvarsall
+        batf.write('call "' + paths['VCINSTALLDIR'] + '\\vcvarsall.bat" ' + platform + '\n')
+        # Tell Python to dump the environment as a pickle
+        batf.write('"' + sys.executable + # sys.executable is the Python we're running in
+                   '" -c "import os,sys,pickle;pickle.dump(dict(os.environ), open(r\'' + tmpout + '\', \'w\'))"\n')
+        batf.close()
+
+        # Put every string from paths into the subprocess environment
+        # We leave the environment otherwise empty, so we get pure results
+        # for variables we pick out of it.
+        subenv={}
+        for k in paths.keys():
+            if type(paths[k]) != type([]):
+                subenv[k] = str(paths[k])
         
+        # Manufacture a COMNTOOLS variable
+        k = 'VS' + str(version).replace('.', '') + 'COMNTOOLS'
+        subenv[k] = str(paths['VSINSTALLDIR']) + '\\Common7\\Tools\\'
+        
+        # Spawn it off
+        p = subprocess.Popen(tmpbat, 
+                             stdout=subprocess.PIPE, 
+                             stderr=subprocess.PIPE, 
+                             shell=True,
+                             env=subenv)
+        out, err = p.communicate()
+        status = p.wait()
+        if err:
+            sys.stderr.write(err)
+        if out:
+            sys.stderr.write(out)
+
+        if status:
+            raise OSError("Calling vcvarsall.bat exited %d" % (status,))
+
+        if os.path.exists(tmpout):
+            import pickle
+            # Get the subprocess' pickled environment
+            retenv = pickle.load(open(tmpout, 'r'))
+            
+            dirs={}
+            for k in ['INCLUDE', 'LIB', 'LIBPATH', 'PATH']:
+                if retenv.has_key(k):
+                    v = retenv[k]
+                    # lop off any trailing semicolons
+                    if v[-1] == ';':
+                        v = v[:-1]
+                    # SCons code expects LIBRARY instead of LIB, see line 421 in get_msvc_path
+                    if k == 'LIB':
+                        k = 'LIBRARY'
+                    dirs[k] = v
+
+            # DLADD kam 01Jun07 Cache the results of parsing the XML file for VS8
+            _msvc8_override_cache[(version, platform, suite)] = dirs
+
+            return dirs
+
+
     # In VS8 the user can change the location of the settings file that
     # contains the include, lib and binary paths. Try to get the location
     # from registry
