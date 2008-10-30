@@ -161,52 +161,54 @@ def _parse_msvc8_overrides(version,platform,suite):
         # Put every string from paths into the subprocess environment
         # We leave the environment otherwise empty, so we get pure results
         # for variables we pick out of it.
-        subenv={}
-        for k in paths.keys():
-            if type(paths[k]) != type([]):
-                subenv[k] = str(paths[k])
-        
+        systemroot = os.environ['SystemRoot']
+        subenv={'PATH': systemroot + ';' + systemroot + '\\System32;' + systemroot + '\\System32\\Wbem'}
+        for k in os.environ.keys():
+            v = os.environ[k]
+            if k in ['COMSPEC', 'TEMP', 'TMP', 'windir', 'SystemRoot', 'SystemDrive']:
+                subenv[k] = v
+            if 'PROCESSOR' in k:
+                subenv[k] = v
+
         # Manufacture a COMNTOOLS variable
         k = 'VS' + str(version).replace('.', '') + 'COMNTOOLS'
-        subenv[k] = str(paths['VSINSTALLDIR']) + '\\Common7\\Tools\\'
-        
+        subenv[k] = str(paths['VSINSTALLDIR']) + 'Common7\\Tools\\'
+
         # Spawn it off
         p = subprocess.Popen(tmpbat, 
-                             stdout=subprocess.PIPE, 
-                             stderr=subprocess.PIPE, 
                              shell=True,
                              env=subenv)
-        out, err = p.communicate()
         status = p.wait()
-        if err:
-            sys.stderr.write(err)
-        if out:
-            sys.stderr.write(out)
-
+        
         if status:
-            raise OSError("Calling vcvarsall.bat exited %d" % (status,))
+            raise SCons.Errors.InternalError("Calling vcvarsall.bat %s exited %d" % (platform, status,))
 
+        dirs={}
         if os.path.exists(tmpout):
             import pickle
             # Get the subprocess' pickled environment
             retenv = pickle.load(open(tmpout, 'r'))
-            
-            dirs={}
+
             for k in ['INCLUDE', 'LIB', 'LIBPATH', 'PATH']:
                 if retenv.has_key(k):
                     v = retenv[k]
+                    
+                    # Take off path we used to make the sub environment work
+                    if k == 'PATH':
+                        v = v.replace(subenv['PATH'], '')
+
                     # lop off any trailing semicolons
-                    if v[-1] == ';':
+                    if v and v[-1] == ';':
                         v = v[:-1]
+                    
                     # SCons code expects LIBRARY instead of LIB, see line 421 in get_msvc_path
                     if k == 'LIB':
                         k = 'LIBRARY'
                     dirs[k] = v
 
-            # DLADD kam 01Jun07 Cache the results of parsing the XML file for VS8
-            _msvc8_override_cache[(version, platform, suite)] = dirs
-
-            return dirs
+        # DLADD kam 01Jun07 Cache the results of parsing the XML file for VS8
+        _msvc8_override_cache[(version, platform, suite)] = dirs
+        return dirs
 
 
     # In VS8 the user can change the location of the settings file that
