@@ -146,18 +146,18 @@ else:
             # check /usr/libfoo/scons*.
             prefs.append(libpath)
 
+try:
+    import pkg_resources
+except ImportError:
+    pass
+else:
+    # when running from an egg add the egg's directory 
     try:
-        import pkg_resources
-    except ImportError:
+        d = pkg_resources.get_distribution('scons==' + __version__)
+    except pkg_resources.DistributionNotFound:
         pass
     else:
-        # when running from an egg add the egg's directory 
-        try:
-            d = pkg_resources.get_distribution('scons')
-        except pkg_resources.DistributionNotFound:
-            pass
-        else:
-            prefs.append (d.location)
+        prefs.insert(0, d.location)
 
 # Look first for 'scons-__version__' in all of our preference libs,
 # then for 'scons'.
