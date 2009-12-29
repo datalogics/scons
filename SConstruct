@@ -45,7 +45,7 @@ import sys
 import time
 
 project = 'scons'
-default_version = '0.97'
+default_version = '0.97p1'
 copyright = "Copyright (c) %s The SCons Foundation" % copyright_years
 
 SConsignFile()
