@@ -144,67 +144,73 @@ def _parse_msvc8_overrides(version,platform,suite):
     import tempfile
     import subprocess
     import sys
-    tmpbat = tempfile.mktemp('.bat')
-    batf = open(tmpbat, 'w')
     paths = SCons.Tool.msvs.get_msvs_install_dirs(version, suite)
 
     if paths.has_key('VCINSTALLDIR') and paths.has_key('VSINSTALLDIR'):
+        tmpbat = tempfile.mktemp('.bat')
         tmpout = tempfile.mktemp('.pickle')
-        batf.write('@echo off\n')
-        # run vcvarsall
-        batf.write('call "' + paths['VCINSTALLDIR'] + '\\vcvarsall.bat" ' + platform + '\n')
-        # Tell Python to dump the environment as a pickle
-        batf.write('"' + sys.executable + # sys.executable is the Python we're running in
-                   '" -c "import os,sys,pickle;pickle.dump(dict(os.environ), open(r\'' + tmpout + '\', \'w\'))"\n')
-        batf.close()
+        try:
+            batf = open(tmpbat, 'w')
+            batf.write('@echo off\n')
+            # run vcvarsall
+            batf.write('call "' + paths['VCINSTALLDIR'] + '\\vcvarsall.bat" ' + platform + '\n')
+            # Tell Python to dump the environment as a pickle
+            batf.write('"' + sys.executable + # sys.executable is the Python we're running in
+                       '" -c "import os,sys,pickle;pickle.dump(dict(os.environ), open(r\'' + tmpout + '\', \'w\'))"\n')
+            batf.close()
 
-        # Put every string from paths into the subprocess environment
-        # We leave the environment otherwise empty, so we get pure results
-        # for variables we pick out of it.
-        systemroot = os.environ['SystemRoot']
-        subenv={'PATH': systemroot + ';' + systemroot + '\\System32;' + systemroot + '\\System32\\Wbem'}
-        for k in os.environ.keys():
-            v = os.environ[k]
-            if k in ['COMSPEC', 'TEMP', 'TMP', 'windir', 'SystemRoot', 'SystemDrive']:
-                subenv[k] = v
-            if 'PROCESSOR' in k:
-                subenv[k] = v
+            # Put every string from paths into the subprocess environment
+            # We leave the environment otherwise empty, so we get pure results
+            # for variables we pick out of it.
+            systemroot = os.environ['SystemRoot']
+            subenv={'PATH': systemroot + ';' + systemroot + '\\System32;' + systemroot + '\\System32\\Wbem'}
+            for k in os.environ.keys():
+                v = os.environ[k]
+                if k in ['COMSPEC', 'TEMP', 'TMP', 'windir', 'SystemRoot', 'SystemDrive']:
+                    subenv[k] = v
+                if 'PROCESSOR' in k:
+                    subenv[k] = v
 
-        # Manufacture a COMNTOOLS variable
-        k = 'VS' + str(version).replace('.', '') + 'COMNTOOLS'
-        subenv[k] = str(paths['VSINSTALLDIR']) + 'Common7\\Tools\\'
+            # Manufacture a COMNTOOLS variable
+            k = 'VS' + str(version).replace('.', '') + 'COMNTOOLS'
+            subenv[k] = str(paths['VSINSTALLDIR']) + 'Common7\\Tools\\'
 
-        # Spawn it off
-        p = subprocess.Popen(tmpbat, 
-                             shell=True,
-                             env=subenv)
-        status = p.wait()
-        
-        if status:
-            raise SCons.Errors.InternalError("Calling vcvarsall.bat %s exited %d" % (platform, status,))
+            # Spawn it off
+            p = subprocess.Popen(tmpbat,
+                                 shell=True,
+                                 env=subenv)
+            status = p.wait()
 
-        dirs={}
-        if os.path.exists(tmpout):
-            import pickle
-            # Get the subprocess' pickled environment
-            retenv = pickle.load(open(tmpout, 'r'))
+            if status:
+                raise SCons.Errors.InternalError("Calling vcvarsall.bat %s exited %d" % (platform, status,))
 
-            for k in ['INCLUDE', 'LIB', 'LIBPATH', 'PATH']:
-                if retenv.has_key(k):
-                    v = retenv[k]
-                    
-                    # Take off path we used to make the sub environment work
-                    if k == 'PATH':
-                        v = v.replace(subenv['PATH'], '')
+            dirs={}
+            if os.path.exists(tmpout):
+                import pickle
+                # Get the subprocess' pickled environment
+                retenv = pickle.load(open(tmpout, 'r'))
 
-                    # lop off any trailing semicolons
-                    if v and v[-1] == ';':
-                        v = v[:-1]
-                    
-                    # SCons code expects LIBRARY instead of LIB, see line 421 in get_msvc_path
-                    if k == 'LIB':
-                        k = 'LIBRARY'
-                    dirs[k] = v
+                for k in ['INCLUDE', 'LIB', 'LIBPATH', 'PATH']:
+                    if retenv.has_key(k):
+                        v = retenv[k]
+
+                        # Take off path we used to make the sub environment work
+                        if k == 'PATH':
+                            v = v.replace(subenv['PATH'], '')
+
+                        # lop off any trailing semicolons
+                        if v and v[-1] == ';':
+                            v = v[:-1]
+
+                        # SCons code expects LIBRARY instead of LIB, see line 421 in get_msvc_path
+                        if k == 'LIB':
+                            k = 'LIBRARY'
+                        dirs[k] = v
+        finally:
+            if os.path.exists(tmpout):
+                os.remove(tmpout)
+            if os.path.exists(tmpbat):
+                os.remove(tmpbat)
 
         # DLADD kam 01Jun07 Cache the results of parsing the XML file for VS8
         _msvc8_override_cache[(version, platform, suite)] = dirs
