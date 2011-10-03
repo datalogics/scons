@@ -49,13 +49,14 @@ if java_parsing:
     #     double-backslashes;
     #     a single-line comment "//";
     #     single or double quotes preceeded by a backslash;
+    #     digits followed by a period (prevents accidentally considering a package/class name)
     #     single quotes, double quotes, open or close braces, semi-colons;
     #     any alphanumeric token (keyword, class name, specifier);
     #     the multi-line comment begin and end tokens /* and */;
     #     array declarations "[]";
     #     semi-colons;
     #     periods.
-    _reToken = re.compile(r'(\n|\\\\|//|\\[\'"]|[\'"\{\}\;\.\(\)]|' +
+    _reToken = re.compile(r'(\n|\\\\|//|\\[\'"]|[0-9]+\.|[\'"\{\}\;\.\(\)]|' +
                           r'[A-Za-z_][\w\.]*|/\*|\*/|\[\])')
 
     class OuterState:
