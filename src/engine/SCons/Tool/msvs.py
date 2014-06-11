@@ -1236,7 +1236,7 @@ def get_visualstudio_versions():
     except ValueError:
         pass
 
-    L.sort()
+    L.sort(lambda x, y: int(x.split('.')[0]) - int(y.split('.')[0]))
     L.reverse()
 
     return L
