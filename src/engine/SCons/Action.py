@@ -487,12 +487,18 @@ class CommandAction(_ActionAction):
                 maxline = 2048
 
             psc_key = None
+            psc_value = None
             try:
                 import _winreg as wreg
-
                 psc_key = wreg.OpenKey(wreg.HKEY_CLASSES_ROOT, 'Microsoft.PowerShellConsole.1')
                 psc_value = wreg.QueryValueEx(psc_key, 'FriendlyTypeName')
+            except:
+                pass # don't do anything (and don't alter the 'pre-patch' behavior)
+            finally:
+                if psc_key != None:
+                    wreg.CloseKey(psc_key)
 
+            if psc_value != None:
                 # the parse logic (below) might be a bit sketchy since it implies a schema
                 # for the registry key. if that schema should change, this logic will fail
                 # to tease the path out of the registry key's raw value. at present, the
@@ -515,11 +521,6 @@ class CommandAction(_ActionAction):
                             # so, use powershell instead...
                             shell = powershell_path
                             break
-            except:
-                pass # don't do anything (and don't alter the 'pre-patch' behavior)
-            finally:
-                if psc_key != None:
-                    wreg.CloseKey(psc_key)
 
         # Use len() to filter out any "command" that's zero-length.
         for cmd_line in filter(len, cmd_list):
