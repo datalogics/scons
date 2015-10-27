@@ -505,7 +505,7 @@ class CommandAction(_ActionAction):
                 if '%systemroot%' in raw_path:
                     powershell_path = string.replace(raw_path, '%systemroot%', os.getenv('systemroot'))
 
-                if os.path.isfile(powershell_path) == True:
+                if os.path.isfile(powershell_path):
                     maxline -= (len(cmd_line) - 1) # account for command line whitespace
                     for item in cmd_line:
                         maxline -= len(item)
