@@ -516,7 +516,7 @@ class CommandAction(_ActionAction):
                             shell = powershell_path
                             break
             except:
-                pass
+                pass # don't do anything (and don't alter the 'pre-patch' behavior)
             finally:
                 if psc_key != None:
                     wreg.CloseKey(psc_key)
