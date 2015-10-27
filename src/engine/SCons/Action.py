@@ -480,7 +480,7 @@ class CommandAction(_ActionAction):
         # DLADD: JRH 20151022 SF37871/SF37872: DLE now contains to many .java and .cs files
         #                                      to compile with the standard windows cmd.exe
         # on windows, use powershell when available/necessary (to avoid command line length limit failures)
-        if (sys.platform == 'win32') and (cmd_line[0] == 'javac'):
+        if (sys.platform == 'win32') and (cmd_line[0] == 'javac'): # limit the patch to javac, for now
             try:
                 maxline = int(env.subst('$MAXLINELENGTH'))
             except ValueError:
@@ -488,10 +488,7 @@ class CommandAction(_ActionAction):
 
             psc_key = None
             try:
-                if sys.version_info < (3,0):
-                    import _winreg as wreg
-                else:
-                    import winreg as wreg
+                import _winreg as wreg
 
                 psc_key = wreg.OpenKey(wreg.HKEY_CLASSES_ROOT, 'Microsoft.PowerShellConsole.1')
                 psc_value = wreg.QueryValueEx(psc_key, 'FriendlyTypeName')
@@ -499,10 +496,14 @@ class CommandAction(_ActionAction):
                 # the parse logic (below) might be a bit sketchy since it implies a schema
                 # for the registry key. if that schema should change, this logic will fail
                 # to tease the path out of the registry key's raw value. at present, the
-                # raw value is a tuple that contains a compound, "tuple-like" string.
+                # raw value is a tuple that contains a compound, "tuple-like" string. at the
+                # time of this patch application the registry key was (the tuple):
+                # @"%systemroot%\system32\windowspowershell\v1.0\powershell.exe",-107
                 raw_path = psc_value[0].split('"')[1]
 
                 if '%systemroot%' in raw_path:
+                    # we must manually perform replacement (e.g., %systemroot% -> 'c:\')
+                    # since the current python/scons context will not do so.
                     powershell_path = string.replace(raw_path, '%systemroot%', os.getenv('systemroot'))
 
                 if os.path.isfile(powershell_path):
