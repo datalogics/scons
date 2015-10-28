@@ -477,55 +477,56 @@ class CommandAction(_ActionAction):
 
         cmd_list, ignore, silent = self.process(target, map(rfile, source), env)
 
-        # DLADD: JRH 20151022 SF37871/SF37872: DLE now contains to many .java and .cs files
-        #                                      to compile with the standard windows cmd.exe
-        # on windows, use powershell when available/necessary (to avoid command line length limit failures)
-        if (sys.platform == 'win32') and (cmd_line[0] == 'javac'): # limit the patch to javac, for now
-            try:
-                maxline = int(env.subst('$MAXLINELENGTH'))
-            except ValueError:
-                maxline = 2048
-
-            psc_key = None
-            psc_value = None
-            try:
-                import _winreg as wreg
-                psc_key = wreg.OpenKey(wreg.HKEY_CLASSES_ROOT, 'Microsoft.PowerShellConsole.1')
-                psc_value = wreg.QueryValueEx(psc_key, 'FriendlyTypeName')
-            except:
-                pass # don't do anything (and don't alter the 'pre-patch' behavior)
-            finally:
-                if psc_key != None:
-                    wreg.CloseKey(psc_key)
-
-            if psc_value != None:
-                # the parse logic (below) might be a bit sketchy since it implies a schema
-                # for the registry key. if that schema should change, this logic will fail
-                # to tease the path out of the registry key's raw value. at present, the
-                # raw value is a tuple that contains a compound, "tuple-like" string. at the
-                # time of this patch application the registry key was (the tuple):
-                # @"%systemroot%\system32\windowspowershell\v1.0\powershell.exe",-107
-                raw_path = psc_value[0].split('"')[1]
-
-                if '%systemroot%' in raw_path:
-                    # we must manually perform replacement (e.g., %systemroot% -> 'c:\')
-                    # since the current python/scons context will not do so.
-                    powershell_path = string.replace(raw_path, '%systemroot%', os.getenv('systemroot'))
-
-                if os.path.isfile(powershell_path):
-                    maxline -= (len(cmd_line) - 1) # account for command line whitespace
-                    for item in cmd_line:
-                        maxline -= len(item)
-                        if maxline < 0:
-                            # we're facing a 'command line to long error'
-                            # so, use powershell instead...
-                            shell = powershell_path
-                            break
-
         # Use len() to filter out any "command" that's zero-length.
         for cmd_line in filter(len, cmd_list):
             # Escape the command line for the interpreter we are using.
             cmd_line = escape_list(cmd_line, escape)
+
+            # DLADD: JRH 20151022 SF37871/SF37872: DLE now contains to many .java and .cs files
+            #                                      to compile with the standard windows cmd.exe
+            # on windows, use powershell when available/necessary (to avoid command line length limit failures)
+            if (sys.platform == 'win32') and (cmd_line[0] == 'javac'): # limit the patch to javac, for now
+                try:
+                    maxline = int(env.subst('$MAXLINELENGTH'))
+                except ValueError:
+                    maxline = 2048
+
+                psc_key = None
+                psc_value = None
+                try:
+                    import _winreg as wreg
+                    psc_key = wreg.OpenKey(wreg.HKEY_CLASSES_ROOT, 'Microsoft.PowerShellConsole.1')
+                    psc_value = wreg.QueryValueEx(psc_key, 'FriendlyTypeName')
+                except:
+                    pass # don't do anything (and don't alter the 'pre-patch' behavior)
+                finally:
+                    if psc_key != None:
+                        wreg.CloseKey(psc_key)
+
+                if psc_value != None:
+                    # the parse logic (below) might be a bit sketchy since it implies a schema
+                    # for the registry key. if that schema should change, this logic will fail
+                    # to tease the path out of the registry key's raw value. at present, the
+                    # raw value is a tuple that contains a compound, "tuple-like" string. at the
+                    # time of this patch application the registry key was (the tuple):
+                    # @"%systemroot%\system32\windowspowershell\v1.0\powershell.exe",-107
+                    raw_path = psc_value[0].split('"')[1]
+
+                    if '%systemroot%' in raw_path:
+                        # we must manually perform replacement (e.g., %systemroot% -> 'c:\')
+                        # since the current python/scons context will not do so.
+                        powershell_path = string.replace(raw_path, '%systemroot%', os.getenv('systemroot'))
+
+                    if os.path.isfile(powershell_path):
+                        maxline -= (len(cmd_line) - 1) # account for command line whitespace
+                        for item in cmd_line:
+                            maxline -= len(item)
+                            if maxline < 0:
+                                # we're facing a 'command line to long error'
+                                # so, use powershell instead...
+                                shell = powershell_path
+                                break
+
             result = spawn(shell, escape, cmd_line[0], cmd_line, ENV)
             if not ignore and result:
                 return result
