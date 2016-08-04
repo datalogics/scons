@@ -95,7 +95,7 @@ way for wrapping up the functions.
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #
 
-__revision__ = "src/engine/SCons/Action.py 0.97p6 2015/11/19 17:09:57 robb"
+__revision__ = "__FILE__ __REVISION__ __DATE__ __DEVELOPER__"
 
 import dis
 import os
