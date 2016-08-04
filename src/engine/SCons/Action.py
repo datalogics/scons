@@ -485,7 +485,7 @@ class CommandAction(_ActionAction):
             # DLADD: JRH 20151022 SF37871/SF37872: DLE now contains to many .java and .cs files
             #                                      to compile with the standard windows cmd.exe
             # on windows, use powershell when available/necessary (to avoid command line length limit failures)
-            if (sys.platform == 'win32'): # limit the patch to javac, for now
+            if (sys.platform == 'win32'): 
                 try:
                     maxline = int(env.subst('$MAXLINELENGTH'))
                 except ValueError:
