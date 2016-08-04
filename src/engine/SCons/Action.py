@@ -73,7 +73,7 @@ way for wrapping up the functions.
 """
 
 #
-# __COPYRIGHT__
+# Copyright (c) 2001, 2002, 2003, 2004, 2005, 2006, 2007 The SCons Foundation
 #
 # Permission is hereby granted, free of charge, to any person obtaining
 # a copy of this software and associated documentation files (the
@@ -95,7 +95,7 @@ way for wrapping up the functions.
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #
 
-__revision__ = "__FILE__ __REVISION__ __DATE__ __DEVELOPER__"
+__revision__ = "src/engine/SCons/Action.py 0.97p6 2015/11/19 17:09:57 robb"
 
 import dis
 import os
@@ -485,7 +485,7 @@ class CommandAction(_ActionAction):
             # DLADD: JRH 20151022 SF37871/SF37872: DLE now contains to many .java and .cs files
             #                                      to compile with the standard windows cmd.exe
             # on windows, use powershell when available/necessary (to avoid command line length limit failures)
-            if (sys.platform == 'win32') and (cmd_line[0] == 'javac'): # limit the patch to javac, for now
+            if (sys.platform == 'win32'): # limit the patch to javac, for now
                 try:
                     maxline = int(env.subst('$MAXLINELENGTH'))
                 except ValueError:
